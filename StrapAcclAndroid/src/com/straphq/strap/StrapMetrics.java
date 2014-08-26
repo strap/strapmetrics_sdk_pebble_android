@@ -1,3 +1,8 @@
+/** @file StrapMetrics.java
+ *  @brief StrapMetrics
+ */
+
+
 package com.straphq.strap;
 
 import com.getpebble.android.kit.util.PebbleDictionary;
@@ -31,52 +36,72 @@ public class StrapMetrics
     // -----------------------
     private static final int strap_api_num_samples = 10;
     // -----------------------
-    
+
   private String strapURL = "https://api.straphq.com/create/visit/with/";
 //    private String strapURL = "http://192.168.2.8:8000/create/visit/with/";
     private String appID;
-    
-    Calendar mCalendar = new GregorianCalendar();  
-    TimeZone mTimeZone = mCalendar.getTimeZone();  
-    int mGMTOffset = mTimeZone.getRawOffset();  
+
+    Calendar mCalendar = new GregorianCalendar();
+    TimeZone mTimeZone = mCalendar.getTimeZone();
+    int mGMTOffset = mTimeZone.getRawOffset();
     long tz_offset = TimeUnit.HOURS.convert(mGMTOffset, TimeUnit.MILLISECONDS);
 
-    
+
     private JSONArray tmpstore = new JSONArray();
-    
+
+    /**
+     * Initializes StrapMetrics
+     * @param url The url endpoint to send StrapMetrics data to
+     * @param appid The StrapMetrics application ID.
+     */
     public StrapMetrics(String url, String appid) {
         appID = appid;
         strapURL = url;
     }
-    
+
+    /**
+     * Initializes StrapMetrics
+     * @param appid The StrapMetrics application ID.
+     */
     public StrapMetrics(String appid) {
         appID = appid;
     }
-    
+
     private void concatJSONArrays(JSONArray result, JSONArray tmp) throws JSONException {
         // append the values in tmp to the result JSONArray
         for(int i = 0; i < tmp.length(); i++) {
             result.put(tmp.getJSONObject(i));
         }
     }
-    
+
+    /**
+     * Checks if StrapMetrics can handle the message from Pebble
+     * @param data The PebbleDictionary received from Pebble
+     */
     public Boolean canHandleMsg(PebbleDictionary data) {
-     
+
         if( data.contains(KEY_OFFSET + T_ACTIVITY)) {
             return true;
         }
         if( data.contains(KEY_OFFSET + T_LOG)) {
             return true;
         }
-        
-        return false;    	
+
+        return false;
     }
-    
+
+    /**
+     * Processes the data from Pebble
+     * @param data The PebbleDictionary received from Pebble
+     * @param min_readings The minimum number of readings required to send accelerometer
+     * data to StrapMetrics.
+     * @param lp Properties containing device information
+     */
     public void processReceiveData(PebbleDictionary data, int min_readings, Properties lp) throws JSONException, IOException {
         String query;
-        
+
         //TODO: Use Pebble serial instead of Android
-        String serial = null; 
+        String serial = null;
 
         try {
             Class<?> c = Class.forName("android.os.SystemProperties");
@@ -84,17 +109,17 @@ public class StrapMetrics
             serial = (String) get.invoke(c, "ro.serialno");
         } catch (Exception ignored) {
         }
-        
-       
+
+
         int key = KEY_OFFSET + T_LOG;
         if(!data.contains(key)) {
             JSONArray convData = StrapMetrics.convAcclData(data);
-            
+
             concatJSONArrays(tmpstore, convData);
 
             if(tmpstore.length() > min_readings) {
 
-                
+
                 query = "app_id=" + appID
                     + "&resolution=" + ((lp.getProperty("resolution").length() > 0) ?  lp.getProperty("resolution") : "")
                     + "&useragent=" + ((lp.getProperty("useragent").length() > 0) ?  lp.getProperty("useragent") : "")
@@ -107,12 +132,12 @@ public class StrapMetrics
 
                 //console.log('query: ' + query);
 
-                
+
 
             	try {
             		Runnable r = new PostLog(strapURL,query);
                     new Thread(r).start();
-                    
+
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -121,7 +146,7 @@ public class StrapMetrics
             // removed else block referencing localstorage
         }
         else {
-            
+
             query = "app_id=" +appID
             		 + "&resolution=" + ((lp.getProperty("resolution").length() > 0) ?  lp.getProperty("resolution") : "")
                      + "&useragent=" + ((lp.getProperty("useragent").length() > 0) ?  lp.getProperty("useragent") : "")
@@ -132,7 +157,7 @@ public class StrapMetrics
         	try {
         		Runnable r = new PostLog(strapURL,query);
                 new Thread(r).start();
-                
+
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -141,52 +166,52 @@ public class StrapMetrics
 
     public static JSONArray convAcclData(PebbleDictionary data) throws JSONException {
         JSONArray convData = new JSONArray();
-        
+
         int key = KEY_OFFSET + T_TIME_BASE;
         long time_base = Long.parseLong(data.getString(key));
         data.remove(key);
-        
+
         for(int i = 0; i < strap_api_num_samples; i++) {
             int point = KEY_OFFSET + (10 * i);
-        
+
             JSONObject ad = new JSONObject();
             // ts key
             key = point + T_TS;
             ad.put("ts", (data.getInteger(key) + time_base));
             data.remove(key);
-            
+
             // x key
             key = point + T_X;
             ad.put("x", data.getInteger(key));
             data.remove(key);
-            
+
             // y key
             key = point + T_Y;
             ad.put("y", data.getInteger(key));
             data.remove(key);
-            
+
             // z key
             key = point + T_Z;
             ad.put("z", data.getInteger(key));
             data.remove(key);
-            
+
             // did_vibrate key
             key = point + T_DID_VIBRATE;
             ad.put("vib", (data.getString(key) == "1")?true:false);
             data.remove(key);
-            
+
             ad.put("act", data.getString(KEY_OFFSET + T_ACTIVITY));
             data.remove(key);
-            
+
             convData.put(ad);
         }
 
         return convData;
     }
-    
+
 
 //    public void postLog() throws IOException {
-//        
+//
 //    }
-//    
+//
 }
