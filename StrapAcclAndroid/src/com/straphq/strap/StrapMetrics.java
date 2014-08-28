@@ -164,7 +164,7 @@ public class StrapMetrics
         }
     }
 
-    public static JSONArray convAcclData(PebbleDictionary data) throws JSONException {
+    private static JSONArray convAcclData(PebbleDictionary data) throws JSONException {
         JSONArray convData = new JSONArray();
 
         int key = KEY_OFFSET + T_TIME_BASE;
